@@ -25,4 +25,10 @@ npm run dev
 
 ## Deployment
 
-`npm run build` produces a fully static site in `dist/` with no server or environment variables required, so it can be hosted on any static host (Netlify, Vercel, Cloudflare Pages, GitHub Pages, S3, etc.).
+The site is deployed to GitHub Pages at **https://riebschlager.github.io/vespera/**.
+
+Every push to `main` triggers [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which builds the app and publishes `dist/` to Pages. You can also run it manually from the Actions tab.
+
+The workflow sets `GITHUB_PAGES=true` during the build so Vite uses `/vespera/` as the base path; local `dev`/`build`/`preview` still serve from `/`.
+
+`npm run build` produces a fully static site with no server or environment variables required, so it can also be hosted on any other static host.
