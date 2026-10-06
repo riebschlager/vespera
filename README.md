@@ -1,21 +1,28 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Vespera
 
-# Run and deploy your AI Studio app
+An interactive Three.js procedural ocean and lunar reflection experience with real-time planar reflections, custom GLSL water distortion shaders, and a subtle cyber-dream aesthetic.
 
-This contains everything you need to run your app locally.
+Built with React, Three.js, Tailwind CSS, and Vite.
 
-View your app in AI Studio: https://ai.studio/apps/4b722f03-4d84-47eb-bc59-218711b34b20
+## Getting started
 
-## Run Locally
+**Prerequisites:** Node.js 20+
 
-**Prerequisites:**  Node.js
+```sh
+npm install
+npm run dev
+```
 
+## Scripts
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
-# vespera
+| Command           | Description                              |
+| ----------------- | ---------------------------------------- |
+| `npm run dev`     | Start the dev server                     |
+| `npm run build`   | Build a static bundle into `dist/`       |
+| `npm run preview` | Serve the production build locally       |
+| `npm run lint`    | Type-check with `tsc`                    |
+| `npm run clean`   | Remove `dist/`                           |
+
+## Deployment
+
+`npm run build` produces a fully static site in `dist/` with no server or environment variables required, so it can be hosted on any static host (Netlify, Vercel, Cloudflare Pages, GitHub Pages, S3, etc.).
