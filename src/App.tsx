@@ -29,15 +29,48 @@ import {
 import { CyberDreamAudio } from './utils/dreamAudio';
 
 const DIVE_DEPTH = -3.5;
+const ZEN_POINTER_IDLE_MS = 1000;
 
 export default function App() {
   const [config, setConfig] = useState<SceneConfig>(SCENE_PRESETS[0].config);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [isControlsOpen, setIsControlsOpen] = useState<boolean>(false);
-  const [isZenMode, setIsZenMode] = useState<boolean>(false);
+  const [isZenMode, setIsZenMode] = useState<boolean>(true);
+  const [isZenPointerActive, setIsZenPointerActive] = useState(false);
   const [isAudioActive, setIsAudioActive] = useState<boolean>(false);
   const [captureFlash, setCaptureFlash] = useState<boolean>(false);
   const [summonSignal, setSummonSignal] = useState<number>(0);
+
+  useEffect(() => {
+    setIsZenPointerActive(false);
+    if (!isZenMode) return;
+
+    let idleTimeout: ReturnType<typeof setTimeout> | undefined;
+    let pointerActive = false;
+    const showPointer = () => {
+      if (!pointerActive) {
+        pointerActive = true;
+        setIsZenPointerActive(true);
+      }
+      clearTimeout(idleTimeout);
+      idleTimeout = setTimeout(() => {
+        pointerActive = false;
+        setIsZenPointerActive(false);
+      }, ZEN_POINTER_IDLE_MS);
+    };
+    // A tap also reveals the exit control on devices without a mouse.
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.pointerType !== 'mouse') showPointer();
+    };
+
+    window.addEventListener('pointermove', showPointer);
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      clearTimeout(idleTimeout);
+      window.removeEventListener('pointermove', showPointer);
+      window.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [isZenMode]);
 
   const audioRef = useRef<CyberDreamAudio | null>(null);
   // Altitude to return to when surfacing from a dive
@@ -237,7 +270,9 @@ export default function App() {
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#05060f] select-none">
+    <div className={`relative w-screen h-screen overflow-hidden bg-[#05060f] select-none ${
+      isZenMode && !isZenPointerActive ? 'zen-pointer-idle' : ''
+    }`}>
       {/* Full-Viewport 3D WebGL Ocean & Moon Reflection Canvas */}
       <CyberLunarSeaCanvas
         config={config}
@@ -457,10 +492,12 @@ export default function App() {
         <button
           type="button"
           onClick={() => setIsZenMode(false)}
-          className="fixed bottom-6 right-6 z-20 inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-black/45 backdrop-blur-sm border border-white/10 rounded-lg text-slate-200 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap cursor-pointer"
+          className={`fixed bottom-6 right-6 z-20 inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-black/45 backdrop-blur-sm border border-white/10 rounded-lg text-slate-200 hover:text-white hover:bg-white/10 transition-all duration-200 whitespace-nowrap cursor-pointer focus-visible:opacity-100 focus-visible:pointer-events-auto ${
+            isZenPointerActive ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
         >
           <Eye className="w-3.5 h-3.5 text-cyan-300" />
-          <span>Restore HUD</span>
+          <span>Controls</span>
         </button>
       )}
 
