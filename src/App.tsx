@@ -716,6 +716,33 @@ export default function App() {
               />
             </div>
 
+            {/* Control 3c: Neon Shooting Star Frequency */}
+            <div>
+              <div className="flex items-center justify-between text-xs mb-1.5">
+                <label htmlFor="ctrl-shooting-stars" className="text-slate-300 font-medium">
+                  Shooting Stars
+                </label>
+                <span className="font-mono tabular-nums text-cyan-300">
+                  {config.shootingStarRate === 0 ? 'Off' : `${config.shootingStarRate} / min`}
+                </span>
+              </div>
+              <input
+                id="ctrl-shooting-stars"
+                type="range"
+                min={0}
+                max={30}
+                step={1}
+                value={config.shootingStarRate}
+                onChange={(e) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    shootingStarRate: parseFloat(e.target.value),
+                  }))
+                }
+                className="cyber-slider"
+              />
+            </div>
+
             {/* Weather Conditions Toggle & Intensity Slider (Procedural Fog, Digital Drizzle & DoF) */}
             <div className="p-3 bg-white/[0.04] border border-white/10 rounded-lg space-y-2.5">
               <div className="flex items-center justify-between text-xs">

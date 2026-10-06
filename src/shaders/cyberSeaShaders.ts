@@ -870,6 +870,169 @@ export const constellationFragmentShader = /* glsl */ `
   }
 `;
 
+// Shooting-star flight path, shared by the trail ribbon and the head flare.
+// \`position\` is the launch point; aParams = (spawnTime, flightDuration, width, hue).
+const shootingStarPathCommon = /* glsl */ `
+  attribute vec3 aVelocity;
+  attribute vec4 aParams;
+
+  uniform float uTime;
+  uniform vec3 uGravity;
+
+  vec3 shootingStarPath(float t) {
+    return position + aVelocity * t + 0.5 * uGravity * t * t;
+  }
+`;
+
+export const shootingStarTrailVertexShader = /* glsl */ `
+  ${shootingStarPathCommon}
+
+  attribute vec2 aTrail; // x: 0..1 along the flight path, y: -1 / +1 ribbon side
+
+  uniform float uFadeTime;
+  uniform vec3 uWind;
+
+  varying float vSide;
+  varying float vSince;
+  varying float vAlpha;
+  varying float vHue;
+  varying float vAlong;
+
+  void main() {
+    float age = uTime - aParams.x;
+    float flight = aParams.y;
+    float headT = clamp(age, 0.0, flight);
+    float sampleT = aTrail.x * flight;
+    // Points the head hasn't reached yet collapse onto it, so the ribbon tapers to a point there
+    float t = min(sampleT, headT);
+    float reached = step(sampleT, headT + 1e-4);
+    // Seconds since the head burned through this point of the trail
+    float since = max(age - t, 0.0);
+
+    vec3 pos = shootingStarPath(t);
+    vec3 tangent = normalize(aVelocity + uGravity * t);
+    vec3 side = normalize(cross(tangent, pos - cameraPosition));
+
+    // As the ionised trail cools it drifts on the high-altitude wind and curls like smoke
+    float curl = sin(aTrail.x * 23.0 + aParams.w * 40.0 + uTime * 0.7)
+      + 0.5 * sin(aTrail.x * 57.0 - uTime * 1.3);
+    pos += uWind * since + side * curl * since * 1.6;
+
+    float tailTaper = smoothstep(0.0, 0.3, aTrail.x);
+    float spread = 1.0 + since * 1.5;
+    float width = aParams.z * (0.3 + 0.7 * tailTaper) * spread * reached;
+    pos += side * aTrail.y * width;
+
+    float horizonFade = smoothstep(0.0, 0.07, normalize(pos).y);
+    // Light spreads thinner as the trail billows out, then fades away slowly
+    vAlpha = step(0.0, age) * reached * horizonFade * exp(-since / uFadeTime)
+      * pow(spread, -0.35) * smoothstep(0.0, 0.12, aTrail.x);
+
+    vSide = aTrail.y;
+    vSince = since;
+    vHue = aParams.w;
+    vAlong = aTrail.x;
+
+    gl_Position = projectionMatrix * viewMatrix * vec4(pos, 1.0);
+    // Push spent trails past the far plane instead of rasterising invisible triangles
+    if (vAlpha < 0.002) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+  }
+`;
+
+export const shootingStarTrailFragmentShader = /* glsl */ `
+  uniform vec3 uMoonCore;
+  uniform vec3 uCyberAccent;
+  uniform vec3 uNeonPink;
+  uniform vec3 uNeonViolet;
+  uniform float uCyberIntensity;
+  uniform float uFogAmount;
+  uniform float uTime;
+
+  varying float vSide;
+  varying float vSince;
+  varying float vAlpha;
+  varying float vHue;
+  varying float vAlong;
+
+  void main() {
+    float v2 = vSide * vSide;
+    float core = exp(-v2 * 22.0);
+    float glow = exp(-v2 * 3.2);
+    // The hot filament dissolves into a soft neon haze as it ages
+    float diffuse = smoothstep(0.0, 1.6, vSince);
+    float profile = mix(core * 2.2 + glow * 0.9, glow * 1.1, diffuse);
+
+    vec3 hot = mix(vec3(1.0), uMoonCore, 0.3);
+    vec3 neon = mix(uCyberAccent, uNeonPink, vHue);
+    vec3 cooled = mix(uNeonPink, uNeonViolet, vHue);
+    vec3 col = mix(neon, cooled, smoothstep(0.3, 3.0, vSince));
+    col = mix(col, hot, exp(-vSince * 5.0) * core);
+
+    // Faint retro scan banding drifting through the cooling haze
+    float bands = 1.0 + 0.22 * uCyberIntensity * diffuse * sin(vAlong * 160.0 - uTime * 3.0);
+
+    float alpha = profile * vAlpha * bands * (1.0 - 0.65 * uFogAmount);
+    if (alpha <= 0.002) discard;
+    gl_FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
+  }
+`;
+
+export const shootingStarHeadVertexShader = /* glsl */ `
+  ${shootingStarPathCommon}
+
+  uniform float uPixelRatio;
+
+  varying float vIntensity;
+  varying float vHue;
+
+  void main() {
+    float age = uTime - aParams.x;
+    float flight = max(aParams.y, 1e-3);
+    vec3 pos = shootingStarPath(clamp(age, 0.0, flight));
+
+    float life = age / flight;
+    // Ignite, flare brighter just before burning out, then wink away
+    float flare = life < 1.0
+      ? 1.0 + 0.9 * smoothstep(0.7, 1.0, life)
+      : 1.9 * exp(-(age - flight) * 8.0);
+    vIntensity = step(0.0, age) * smoothstep(0.0, 0.1, life) * flare
+      * smoothstep(0.0, 0.07, normalize(pos).y);
+    vHue = aParams.w;
+
+    gl_Position = projectionMatrix * viewMatrix * vec4(pos, 1.0);
+    gl_PointSize = clamp(aParams.z * 6.0 * (0.7 + 0.3 * vIntensity) * uPixelRatio, 0.0, 64.0);
+    if (vIntensity < 0.002) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+  }
+`;
+
+export const shootingStarHeadFragmentShader = /* glsl */ `
+  uniform vec3 uMoonCore;
+  uniform vec3 uCyberAccent;
+  uniform vec3 uNeonPink;
+  uniform float uFogAmount;
+
+  varying float vIntensity;
+  varying float vHue;
+
+  void main() {
+    vec2 uv = (gl_PointCoord - 0.5) * 2.0;
+    float dist = length(uv);
+    if (dist > 1.0) discard;
+
+    float core = exp(-dist * dist * 28.0);
+    float halo = exp(-dist * 4.5) * 0.6;
+    float spikes = (exp(-abs(uv.y) * 22.0) * exp(-abs(uv.x) * 3.0)
+      + exp(-abs(uv.x) * 22.0) * exp(-abs(uv.y) * 3.0)) * 0.7;
+
+    vec3 hot = mix(vec3(1.0), uMoonCore, 0.3);
+    vec3 neon = mix(uCyberAccent, uNeonPink, vHue);
+    vec3 col = hot * core * 1.6 + neon * (halo + spikes);
+
+    float alpha = clamp((core + halo + spikes) * vIntensity, 0.0, 1.0) * (1.0 - 0.65 * uFogAmount);
+    gl_FragColor = vec4(col, alpha);
+  }
+`;
+
 export const creatureVertexShader = /* glsl */ `
   // RIG_JOINTS is injected via material defines (RIG_JOINT_COUNT)
   attribute float aSpineT;

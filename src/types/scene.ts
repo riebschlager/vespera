@@ -33,6 +33,7 @@ export interface SceneConfig {
   moonPhase: number;           // 0.0 to 1.0 (0 = New, 0.25 = First Quarter, 0.5 = Full, 0.75 = Third Quarter)
   autoCyclePhase: boolean;     // Continuously animate waxing/waning transitions
   starfieldDensity: number;    // 0.0 to 2.0 (controls procedural starfield & cyber-constellation intensity)
+  shootingStarRate: number;    // 0 to 30 (neon shooting stars per minute)
   creatureActivity: number;    // 0.0 to 2.0 (controls frequency & glow of bioluminescent creatures peering above water)
   weatherMode: WeatherMode;    // 'clear' | 'fog' | 'drizzle' | 'intermittent'
   weatherIntensity: number;    // 0.0 to 1.5 (controls fog density, digital drizzle, water pattering & ethereal DoF blur)
@@ -118,6 +119,7 @@ export const SCENE_PRESETS: ScenePreset[] = [
       moonPhase: 0.5,
       autoCyclePhase: false,
       starfieldDensity: 1.15,
+      shootingStarRate: 6,
       creatureActivity: 1.0,
       weatherMode: 'intermittent',
       weatherIntensity: 0.68,
@@ -157,6 +159,7 @@ export const SCENE_PRESETS: ScenePreset[] = [
       moonPhase: 0.375,
       autoCyclePhase: false,
       starfieldDensity: 1.35,
+      shootingStarRate: 14,
       creatureActivity: 1.15,
       weatherMode: 'drizzle',
       weatherIntensity: 0.78,
@@ -196,6 +199,7 @@ export const SCENE_PRESETS: ScenePreset[] = [
       moonPhase: 0.625,
       autoCyclePhase: false,
       starfieldDensity: 1.1,
+      shootingStarRate: 4,
       creatureActivity: 1.25,
       weatherMode: 'fog',
       weatherIntensity: 0.75,
@@ -235,6 +239,7 @@ export const SCENE_PRESETS: ScenePreset[] = [
       moonPhase: 0.82,
       autoCyclePhase: false,
       starfieldDensity: 1.55,
+      shootingStarRate: 10,
       creatureActivity: 1.1,
       weatherMode: 'intermittent',
       weatherIntensity: 0.82,

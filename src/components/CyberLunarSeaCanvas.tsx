@@ -13,6 +13,10 @@ import {
   starfieldFragmentShader,
   constellationVertexShader,
   constellationFragmentShader,
+  shootingStarTrailVertexShader,
+  shootingStarTrailFragmentShader,
+  shootingStarHeadVertexShader,
+  shootingStarHeadFragmentShader,
   skyWhaleVertexShader,
   skyWhaleFragmentShader,
   drizzleVertexShader,
@@ -44,6 +48,7 @@ import { SceneConfig } from '../types/scene';
 import { BioluminescentFishSchool } from '../utils/bioluminescentFish';
 import { SkyWhalePod } from '../utils/skyWhaleCreatures';
 import { generateProceduralStarfield } from '../utils/starfieldGenerator';
+import { ShootingStarShower } from '../utils/shootingStars';
 import { CyberWeatherSystem } from '../utils/weatherSystem';
 import { swellHeightAt } from '../utils/oceanSwell';
 
@@ -250,6 +255,18 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
       constellationMat
     );
     starfieldGroup.add(constellationLines);
+
+    // 1c. Neon shooting stars with long, slowly dissipating glow trails
+    const shootingStars = new ShootingStarShower(
+      {
+        trailVertex: shootingStarTrailVertexShader,
+        trailFragment: shootingStarTrailFragmentShader,
+        headVertex: shootingStarHeadVertexShader,
+        headFragment: shootingStarHeadFragmentShader,
+      },
+      pixelRatio
+    );
+    scene.add(shootingStars.group);
 
     // 2. Glowing Moon Group (Sphere + Volumetric Corona Billboard + Subtle Cyber Orbital Ring)
     const moonGroup = new THREE.Group();
@@ -462,6 +479,7 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
     const aboveWaterOnly: THREE.Object3D[] = [
       skyMesh,
       starfieldGroup,
+      shootingStars.group,
       moonGroup,
       skyWhalePod.group,
       weatherSystem.group,
@@ -721,6 +739,7 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
       renderer.setSize(newW, newH);
       renderer.setPixelRatio(pr);
       starfieldUniforms.uPixelRatio.value = pr;
+      shootingStars.setPixelRatio(pr);
 
       reflectionRenderTarget.setSize(
         Math.max(256, Math.floor(newW * pr * reflScale)),
@@ -748,6 +767,7 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
     const targetWaterDeep = new THREE.Color();
     const targetWaterShallow = new THREE.Color();
     const targetCyberAccent = new THREE.Color();
+    const viewDirection = new THREE.Vector3();
 
     let smoothedElevation = initialCfg.moonElevation;
     let smoothedScale = initialCfg.moonScale;
@@ -1058,6 +1078,18 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
       oceanUniforms.uDofStrength.value = weatherState.dofStrength;
       oceanUniforms.uFocalDistance.value = weatherState.focalDistance;
 
+      camera.getWorldDirection(viewDirection);
+      shootingStars.update({
+        dt: pausedRef.current ? 0 : dt,
+        elapsedTime,
+        ratePerMinute: cfg.shootingStarRate,
+        viewDirection,
+        cyberIntensity: smoothedCyber,
+        fogAmount: weatherState.fogAmount,
+        moonCore: skyUniforms.uMoonCore.value,
+        cyberAccent: skyUniforms.uCyberAccent.value,
+      });
+
       // Where is the camera relative to the undulating surface?
       const waveTime = elapsedTime * smoothedWaveSpeed;
       const surfaceAtCamera = swellHeightAt(
@@ -1178,6 +1210,7 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
       starfieldMat.dispose();
       constellationGeometry.dispose();
       constellationMat.dispose();
+      shootingStars.dispose();
       moonGeo.dispose();
       moonMat.dispose();
       coronaGeo.dispose();
