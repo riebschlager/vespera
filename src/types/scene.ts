@@ -39,7 +39,10 @@ export interface SceneConfig {
   waveDistortion: number;      // 0.15 to 1.5 (controls how much water ripples distort reflection)
   waveSpeed: number;           // 0.2 to 2.2
   driftSpeed: number;          // 0.0 to 2.5 (camera floating forward velocity)
-  cameraAltitude: number;      // 1.8 to 6.5 (height above the water)
+  autoCameraDrift: boolean;   // Automatically look around and cycle above/below water
+  cameraLookRate: number;      // 0.0 to 3.0 (look-around speed multiplier)
+  cameraElevationRate: number; // 0.0 to 3.0 (dive/surface cycle speed multiplier)
+  cameraAltitude: number;      // -8.0 to 6.0 (height relative to water)
   mouseInfluence: number;      // 0.0 to 2.0 (range of camera motion & parallax from mouse/pointer)
   cyberDreamIntensity: number; // 0.0 to 1.0 (subtle holographic scanlines, chromatic aura, subsurface grid)
   palette: ColorPalette;
@@ -117,6 +120,9 @@ export const SCENE_PRESETS: ScenePreset[] = [
       waveDistortion: 0.52,
       waveSpeed: 0.85,
       driftSpeed: 1.0,
+      autoCameraDrift: false,
+      cameraLookRate: 1.0,
+      cameraElevationRate: 1.0,
       cameraAltitude: 3.1,
       mouseInfluence: 1.25,
       cyberDreamIntensity: 0.55,
@@ -149,6 +155,9 @@ export const SCENE_PRESETS: ScenePreset[] = [
       waveDistortion: 0.64,
       waveSpeed: 0.95,
       driftSpeed: 1.25,
+      autoCameraDrift: false,
+      cameraLookRate: 1.0,
+      cameraElevationRate: 1.0,
       cameraAltitude: 2.8,
       mouseInfluence: 1.3,
       cyberDreamIntensity: 0.72,
@@ -181,6 +190,9 @@ export const SCENE_PRESETS: ScenePreset[] = [
       waveDistortion: 0.28,
       waveSpeed: 0.55,
       driftSpeed: 0.7,
+      autoCameraDrift: false,
+      cameraLookRate: 1.0,
+      cameraElevationRate: 1.0,
       cameraAltitude: 2.4,
       mouseInfluence: 1.2,
       cyberDreamIntensity: 0.45,
@@ -213,6 +225,9 @@ export const SCENE_PRESETS: ScenePreset[] = [
       waveDistortion: 0.75,
       waveSpeed: 0.75,
       driftSpeed: 0.9,
+      autoCameraDrift: false,
+      cameraLookRate: 1.0,
+      cameraElevationRate: 1.0,
       cameraAltitude: 3.4,
       mouseInfluence: 1.25,
       cyberDreamIntensity: 0.68,

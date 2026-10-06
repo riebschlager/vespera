@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Camera,
   CloudRain,
@@ -43,15 +43,35 @@ export default function App() {
   // Altitude to return to when surfacing from a dive
   const surfaceAltitudeRef = useRef<number>(SCENE_PRESETS[0].config.cameraAltitude);
 
-  const isSubmerged = config.cameraAltitude < 0;
+  const cameraAltitudeRef = useRef(config.cameraAltitude);
+  const cameraSubmergedRef = useRef(false);
+  const [cameraSubmerged, setCameraSubmerged] = useState(false);
+  const handleCameraUpdate = useCallback((altitude: number, submerged: boolean) => {
+    cameraAltitudeRef.current = altitude;
+    // Only notify React at a waterline crossing; motion stays in the render loop.
+    if (cameraSubmergedRef.current !== submerged) {
+      cameraSubmergedRef.current = submerged;
+      setCameraSubmerged(submerged);
+    }
+  }, []);
+  const isSubmerged = config.autoCameraDrift ? cameraSubmerged : config.cameraAltitude < 0;
+
+  const handleToggleCameraDrift = () => {
+    setConfig((prev) => ({
+      ...prev,
+      autoCameraDrift: !prev.autoCameraDrift,
+      cameraAltitude: cameraAltitudeRef.current,
+    }));
+  };
 
   const handleToggleDive = () => {
     setConfig((prev) => {
-      if (prev.cameraAltitude >= 0) {
-        surfaceAltitudeRef.current = prev.cameraAltitude;
-        return { ...prev, cameraAltitude: DIVE_DEPTH };
+      const submerged = prev.autoCameraDrift ? cameraSubmergedRef.current : prev.cameraAltitude < 0;
+      if (!submerged) {
+        surfaceAltitudeRef.current = Math.max(1.6, cameraAltitudeRef.current);
+        return { ...prev, autoCameraDrift: false, cameraAltitude: DIVE_DEPTH };
       }
-      return { ...prev, cameraAltitude: Math.max(1.6, surfaceAltitudeRef.current) };
+      return { ...prev, autoCameraDrift: false, cameraAltitude: Math.max(1.6, surfaceAltitudeRef.current) };
     });
   };
 
@@ -118,7 +138,9 @@ export default function App() {
       setConfig((prev) => ({
         ...found.config,
         palette: { ...found.config.palette },
-        cameraAltitude: prev.cameraAltitude < 0 ? prev.cameraAltitude : found.config.cameraAltitude,
+        cameraAltitude: (prev.autoCameraDrift ? cameraSubmergedRef.current : prev.cameraAltitude < 0)
+          ? (prev.autoCameraDrift ? cameraAltitudeRef.current : prev.cameraAltitude)
+          : found.config.cameraAltitude,
       }));
     }
   };
@@ -221,6 +243,7 @@ export default function App() {
         config={config}
         isPaused={isPaused}
         summonSignal={summonSignal}
+        onCameraUpdate={handleCameraUpdate}
       />
 
       {/* Brief visual shutter feedback when capturing a frame */}
@@ -364,7 +387,7 @@ export default function App() {
                 <>
                   <span aria-hidden="true">·</span>
                   <span className="font-mono tabular-nums text-cyan-200/90">
-                    Submerged {(-config.cameraAltitude).toFixed(1)}m
+                    {config.autoCameraDrift ? 'Submerged · Auto Drift' : `Submerged ${(-config.cameraAltitude).toFixed(1)}m`}
                   </span>
                 </>
               )}
@@ -822,14 +845,55 @@ export default function App() {
                 />
               </div>
 
+              <div className="mb-4 p-3 bg-white/[0.04] border border-white/10 rounded-lg space-y-3">
+                <button
+                  type="button"
+                  onClick={handleToggleCameraDrift}
+                  aria-pressed={config.autoCameraDrift}
+                  className={`w-full px-3 py-2 text-xs font-medium rounded-md border transition-colors cursor-pointer ${
+                    config.autoCameraDrift
+                      ? 'bg-cyan-400/20 border-cyan-400/60 text-cyan-100'
+                      : 'bg-black/40 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  Auto Camera Drift {config.autoCameraDrift ? 'On' : 'Off'}
+                </button>
+                <p className="text-[11px] leading-relaxed text-slate-400">
+                  Look around and glide between 4m above and 6m below the sea. Manual altitude or Dive/Surface takes over. Zero holds either motion.
+                </p>
+                {([
+                  ['cameraLookRate', 'Look Around Rate', 'ctrl-look-rate'],
+                  ['cameraElevationRate', 'Elevation Rate', 'ctrl-elevation-rate'],
+                ] as const).map(([field, label, id]) => (
+                  <div key={field}>
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <label htmlFor={id} className="text-slate-300 font-medium">{label}</label>
+                      <span className="font-mono tabular-nums text-cyan-300">{config[field].toFixed(2)}x</span>
+                    </div>
+                    <input
+                      id={id}
+                      type="range"
+                      min={0}
+                      max={3}
+                      step={0.05}
+                      value={config[field]}
+                      onChange={(e) => setConfig((prev) => ({ ...prev, [field]: parseFloat(e.target.value) }))}
+                      className="cyber-slider"
+                    />
+                  </div>
+                ))}
+              </div>
+
               {/* Control 7: Camera Altitude */}
               <div className="mb-4">
                 <div className="flex items-center justify-between text-xs mb-1.5">
                   <label htmlFor="ctrl-altitude" className="text-slate-300 font-medium">
-                    {isSubmerged ? 'Dive Depth' : 'Camera Altitude'}
+                    {config.autoCameraDrift ? 'Manual Altitude (takes over)' : isSubmerged ? 'Dive Depth' : 'Camera Altitude'}
                   </label>
                   <span className="font-mono tabular-nums text-cyan-300">
-                    {isSubmerged
+                    {config.autoCameraDrift
+                      ? 'Auto'
+                      : isSubmerged
                       ? `${(-config.cameraAltitude).toFixed(1)}m below`
                       : `${config.cameraAltitude.toFixed(1)}m`}
                   </span>
@@ -844,6 +908,7 @@ export default function App() {
                   onChange={(e) =>
                     setConfig((prev) => ({
                       ...prev,
+                      autoCameraDrift: false,
                       cameraAltitude: parseFloat(e.target.value),
                     }))
                   }

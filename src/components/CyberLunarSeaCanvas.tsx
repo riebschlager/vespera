@@ -59,6 +59,7 @@ interface CyberLunarSeaCanvasProps {
   config: SceneConfig;
   isPaused: boolean;
   summonSignal?: number;
+  onCameraUpdate?: (altitude: number, submerged: boolean) => void;
   onFpsUpdate?: (fps: number) => void;
 }
 
@@ -67,12 +68,15 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
   isPaused,
   summonSignal = 0,
   onFpsUpdate,
+  onCameraUpdate,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [webglError, setWebglError] = useState<boolean>(false);
 
   // Keep latest config & pause state accessible inside requestAnimationFrame without recreating the scene
   const configRef = useRef<SceneConfig>(config);
+  const cameraUpdateRef = useRef(onCameraUpdate);
+  cameraUpdateRef.current = onCameraUpdate;
   const pausedRef = useRef<boolean>(isPaused);
   const fishSchoolRef = useRef<BioluminescentFishSchool | null>(null);
   const skyWhalePodRef = useRef<SkyWhalePod | null>(null);
@@ -753,6 +757,11 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
     let smoothedDistortion = initialCfg.waveDistortion;
     let smoothedWaveSpeed = initialCfg.waveSpeed;
     let smoothedAltitude = initialCfg.cameraAltitude;
+    let wasAutoDrifting = false;
+    let lookPhase = 0;
+    let elevationPhase = 0;
+    let autoYaw = 0;
+    let autoPitch = 0;
     let smoothedCyber = initialCfg.cyberDreamIntensity;
 
     // Underwater transition state
@@ -791,14 +800,30 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
       smoothedStarfield += (cfg.starfieldDensity - smoothedStarfield) * lerpRate;
       smoothedDistortion += (cfg.waveDistortion - smoothedDistortion) * lerpRate;
       smoothedWaveSpeed += (cfg.waveSpeed - smoothedWaveSpeed) * lerpRate;
+      const motionDt = pausedRef.current ? 0 : dt;
+      if (cfg.autoCameraDrift && !wasAutoDrifting) {
+        // Start from the current height, with no jump when enabling or resuming drift.
+        elevationPhase = Math.PI - Math.asin(THREE.MathUtils.clamp((smoothedAltitude + 1) / 5, -1, 1));
+        lookPhase = 0;
+      }
+      wasAutoDrifting = cfg.autoCameraDrift;
+      if (cfg.autoCameraDrift) {
+        lookPhase = (lookPhase + motionDt * cfg.cameraLookRate * 0.15) % (Math.PI * 2);
+        elevationPhase = (elevationPhase + motionDt * cfg.cameraElevationRate * 0.12) % (Math.PI * 2);
+      }
+      const autoLerp = 1 - Math.exp(-motionDt * 2);
+      autoYaw += ((cfg.autoCameraDrift ? Math.sin(lookPhase) * 1.1 : 0) - autoYaw) * autoLerp;
+      autoPitch += ((cfg.autoCameraDrift ? Math.sin(lookPhase * 2) * 0.22 : 0) - autoPitch) * autoLerp;
+      const targetAltitude = cfg.autoCameraDrift ? -1 + Math.sin(elevationPhase) * 5 : cfg.cameraAltitude;
+      const altitudeDt = cfg.autoCameraDrift ? motionDt : dt;
       // Altitude glides more slowly than other parameters, and eases off further while crossing
       // the surface so the waterline visibly sweeps across the lens
       const surfaceProximity = Math.exp(-Math.abs(smoothedAltitude) * 0.6);
       const maxClimbRate = THREE.MathUtils.lerp(4.5, 0.4, surfaceProximity);
       smoothedAltitude += THREE.MathUtils.clamp(
-        (cfg.cameraAltitude - smoothedAltitude) * Math.min(1, dt * 2.2),
-        -maxClimbRate * dt,
-        maxClimbRate * dt
+        (targetAltitude - smoothedAltitude) * Math.min(1, altitudeDt * 2.2),
+        -maxClimbRate * altitudeDt,
+        maxClimbRate * altitudeDt
       );
       smoothedCyber += (cfg.cyberDreamIntensity - smoothedCyber) * lerpRate;
 
@@ -939,9 +964,9 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
       // Underwater, tilt the gaze up toward Snell's window where the refracted moon hangs
       const basePitch = Math.atan2(moonPos.y * 0.34 - camY, lookDist) + submergeLook * 0.62;
       const yawAngle =
-        pointerCurrent.x * 0.72 + Math.sin(elapsedTime * 0.25) * 0.012;
+        autoYaw + pointerCurrent.x * 0.72 + Math.sin(elapsedTime * 0.25) * 0.012;
       const pitchAngle = THREE.MathUtils.clamp(
-        basePitch +
+        basePitch + autoPitch +
           pointerCurrent.y * (0.48 + 0.22 * submergeLook) +
           Math.cos(elapsedTime * 0.65) * 0.005,
         THREE.MathUtils.lerp(-0.36, -0.95, submergeLook),
@@ -1039,6 +1064,7 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
       const hasBelow = cameraHeightAboveSurface < lensMargin;
 
       const isUnderwater = cameraHeightAboveSurface < 0;
+      cameraUpdateRef.current?.(smoothedAltitude, isUnderwater);
       if (isUnderwater !== wasUnderwater) {
         if (isUnderwater) divePulse = 1;
         else surfacePulse = 1;
