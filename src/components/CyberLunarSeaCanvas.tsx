@@ -801,9 +801,15 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
       smoothedDistortion += (cfg.waveDistortion - smoothedDistortion) * lerpRate;
       smoothedWaveSpeed += (cfg.waveSpeed - smoothedWaveSpeed) * lerpRate;
       const motionDt = pausedRef.current ? 0 : dt;
+      const lookCenter = THREE.MathUtils.degToRad((cfg.cameraLookMin + cfg.cameraLookMax) / 2);
+      const lookSpan = THREE.MathUtils.degToRad(Math.abs(cfg.cameraLookMax - cfg.cameraLookMin) / 2);
+      const elevationCenter = (cfg.cameraElevationMin + cfg.cameraElevationMax) / 2;
+      const elevationSpan = Math.abs(cfg.cameraElevationMax - cfg.cameraElevationMin) / 2;
       if (cfg.autoCameraDrift && !wasAutoDrifting) {
         // Start from the current height, with no jump when enabling or resuming drift.
-        elevationPhase = Math.PI - Math.asin(THREE.MathUtils.clamp((smoothedAltitude + 1) / 5, -1, 1));
+        elevationPhase = Math.PI - Math.asin(
+          THREE.MathUtils.clamp((smoothedAltitude - elevationCenter) / Math.max(elevationSpan, 1e-3), -1, 1)
+        );
         lookPhase = 0;
       }
       wasAutoDrifting = cfg.autoCameraDrift;
@@ -812,9 +818,13 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
         elevationPhase = (elevationPhase + motionDt * cfg.cameraElevationRate * 0.12) % (Math.PI * 2);
       }
       const autoLerp = 1 - Math.exp(-motionDt * 2);
-      autoYaw += ((cfg.autoCameraDrift ? Math.sin(lookPhase) * 1.1 : 0) - autoYaw) * autoLerp;
-      autoPitch += ((cfg.autoCameraDrift ? Math.sin(lookPhase * 2) * 0.22 : 0) - autoPitch) * autoLerp;
-      const targetAltitude = cfg.autoCameraDrift ? -1 + Math.sin(elevationPhase) * 5 : cfg.cameraAltitude;
+      autoYaw += ((cfg.autoCameraDrift ? lookCenter + Math.sin(lookPhase) * lookSpan : 0) - autoYaw) * autoLerp;
+      // Pitch nods scale with the look span, so a zero-width range holds the gaze still
+      const pitchSwing = Math.min(1, lookSpan / 1.1) * 0.22;
+      autoPitch += ((cfg.autoCameraDrift ? Math.sin(lookPhase * 2) * pitchSwing : 0) - autoPitch) * autoLerp;
+      const targetAltitude = cfg.autoCameraDrift
+        ? elevationCenter + Math.sin(elevationPhase) * elevationSpan
+        : cfg.cameraAltitude;
       const altitudeDt = cfg.autoCameraDrift ? motionDt : dt;
       // Altitude glides more slowly than other parameters, and eases off further while crossing
       // the surface so the waterline visibly sweeps across the lens

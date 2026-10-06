@@ -42,6 +42,10 @@ export interface SceneConfig {
   autoCameraDrift: boolean;   // Automatically look around and cycle above/below water
   cameraLookRate: number;      // 0.0 to 3.0 (look-around speed multiplier)
   cameraElevationRate: number; // 0.0 to 3.0 (dive/surface cycle speed multiplier)
+  cameraLookMin: number;       // -90 to 90 degrees (leftmost auto look-around heading)
+  cameraLookMax: number;       // -90 to 90 degrees (rightmost auto look-around heading)
+  cameraElevationMin: number;  // -8.0 to 6.0 (lowest auto drift altitude)
+  cameraElevationMax: number;  // -8.0 to 6.0 (highest auto drift altitude)
   cameraAltitude: number;      // -8.0 to 6.0 (height relative to water)
   mouseInfluence: number;      // 0.0 to 2.0 (range of camera motion & parallax from mouse/pointer)
   cyberDreamIntensity: number; // 0.0 to 1.0 (subtle holographic scanlines, chromatic aura, subsurface grid)
@@ -123,6 +127,10 @@ export const SCENE_PRESETS: ScenePreset[] = [
       autoCameraDrift: false,
       cameraLookRate: 1.0,
       cameraElevationRate: 1.0,
+      cameraLookMin: -63,
+      cameraLookMax: 63,
+      cameraElevationMin: -6.0,
+      cameraElevationMax: 4.0,
       cameraAltitude: 3.1,
       mouseInfluence: 1.25,
       cyberDreamIntensity: 0.55,
@@ -158,6 +166,10 @@ export const SCENE_PRESETS: ScenePreset[] = [
       autoCameraDrift: false,
       cameraLookRate: 1.0,
       cameraElevationRate: 1.0,
+      cameraLookMin: -63,
+      cameraLookMax: 63,
+      cameraElevationMin: -6.0,
+      cameraElevationMax: 4.0,
       cameraAltitude: 2.8,
       mouseInfluence: 1.3,
       cyberDreamIntensity: 0.72,
@@ -193,6 +205,10 @@ export const SCENE_PRESETS: ScenePreset[] = [
       autoCameraDrift: false,
       cameraLookRate: 1.0,
       cameraElevationRate: 1.0,
+      cameraLookMin: -63,
+      cameraLookMax: 63,
+      cameraElevationMin: -6.0,
+      cameraElevationMax: 4.0,
       cameraAltitude: 2.4,
       mouseInfluence: 1.2,
       cyberDreamIntensity: 0.45,
@@ -228,6 +244,10 @@ export const SCENE_PRESETS: ScenePreset[] = [
       autoCameraDrift: false,
       cameraLookRate: 1.0,
       cameraElevationRate: 1.0,
+      cameraLookMin: -63,
+      cameraLookMax: 63,
+      cameraElevationMin: -6.0,
+      cameraElevationMax: 4.0,
       cameraAltitude: 3.4,
       mouseInfluence: 1.25,
       cyberDreamIntensity: 0.68,

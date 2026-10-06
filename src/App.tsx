@@ -896,28 +896,74 @@ export default function App() {
                   Auto Camera Drift {config.autoCameraDrift ? 'On' : 'Off'}
                 </button>
                 <p className="text-[11px] leading-relaxed text-slate-400">
-                  Look around and glide between 4m above and 6m below the sea. Manual altitude or Dive/Surface takes over. Zero holds either motion.
+                  Sweeps the view and altitude back and forth between each min and max. Manual altitude or Dive/Surface takes over. Zero speed holds a motion.
                 </p>
                 {([
-                  ['cameraLookRate', 'Look Around Rate', 'ctrl-look-rate'],
-                  ['cameraElevationRate', 'Elevation Rate', 'ctrl-elevation-rate'],
-                ] as const).map(([field, label, id]) => (
-                  <div key={field}>
-                    <div className="flex items-center justify-between text-xs mb-1.5">
-                      <label htmlFor={id} className="text-slate-300 font-medium">{label}</label>
-                      <span className="font-mono tabular-nums text-cyan-300">{config[field].toFixed(2)}x</span>
+                  {
+                    title: 'Look Around',
+                    idPrefix: 'ctrl-look',
+                    speed: 'cameraLookRate',
+                    min: 'cameraLookMin',
+                    max: 'cameraLookMax',
+                    range: [-90, 90, 1],
+                    format: (v: number) => (v === 0 ? '0°' : `${Math.abs(v).toFixed(0)}° ${v < 0 ? 'left' : 'right'}`),
+                  },
+                  {
+                    title: 'Elevation',
+                    idPrefix: 'ctrl-elevation',
+                    speed: 'cameraElevationRate',
+                    min: 'cameraElevationMin',
+                    max: 'cameraElevationMax',
+                    range: [-8, 6, 0.1],
+                    format: (v: number) => (v < 0 ? `${(-v).toFixed(1)}m below` : `${v.toFixed(1)}m above`),
+                  },
+                ] as const).map(({ title, idPrefix, speed, min, max, range, format }) => (
+                  <fieldset key={title} className="space-y-2 pt-2 border-t border-white/10">
+                    <legend className="text-[11px] uppercase tracking-wider text-slate-400 pt-2">{title}</legend>
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <label htmlFor={`${idPrefix}-speed`} className="text-slate-300 font-medium">Speed</label>
+                        <span className="font-mono tabular-nums text-cyan-300">{config[speed].toFixed(2)}x</span>
+                      </div>
+                      <input
+                        id={`${idPrefix}-speed`}
+                        type="range"
+                        min={0}
+                        max={3}
+                        step={0.05}
+                        value={config[speed]}
+                        onChange={(e) => setConfig((prev) => ({ ...prev, [speed]: parseFloat(e.target.value) }))}
+                        className="cyber-slider"
+                      />
                     </div>
-                    <input
-                      id={id}
-                      type="range"
-                      min={0}
-                      max={3}
-                      step={0.05}
-                      value={config[field]}
-                      onChange={(e) => setConfig((prev) => ({ ...prev, [field]: parseFloat(e.target.value) }))}
-                      className="cyber-slider"
-                    />
-                  </div>
+                    {([
+                      ['Min', min, max, Math.max] as const,
+                      ['Max', max, min, Math.min] as const,
+                    ]).map(([label, field, other, keepOrdered]) => (
+                      <div key={field}>
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <label htmlFor={`${idPrefix}-${label.toLowerCase()}`} className="text-slate-300 font-medium">
+                            {label}
+                          </label>
+                          <span className="font-mono tabular-nums text-cyan-300">{format(config[field])}</span>
+                        </div>
+                        <input
+                          id={`${idPrefix}-${label.toLowerCase()}`}
+                          type="range"
+                          min={range[0]}
+                          max={range[1]}
+                          step={range[2]}
+                          value={config[field]}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value);
+                            // Push the opposite bound along so min never exceeds max
+                            setConfig((prev) => ({ ...prev, [field]: value, [other]: keepOrdered(prev[other], value) }));
+                          }}
+                          className="cyber-slider"
+                        />
+                      </div>
+                    ))}
+                  </fieldset>
                 ))}
               </div>
 
