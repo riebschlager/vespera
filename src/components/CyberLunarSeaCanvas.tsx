@@ -622,14 +622,36 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
     let isDragging = false;
     let dragStart = { x: 0, y: 0 };
     let dragOffset = { x: 0, y: 0 };
+    let isInteractingWithUi = false;
 
     const updatePointerTarget = () => {
+      if (isInteractingWithUi) {
+        pointerTarget.x = 0;
+        pointerTarget.y = 0;
+        return;
+      }
       const influence = configRef.current.mouseInfluence ?? 1.25;
       pointerTarget.x = hoverNormalized.x * 0.68 * influence + dragOffset.x;
       pointerTarget.y = -hoverNormalized.y * 0.56 * influence + dragOffset.y;
     };
 
+    const returnToDefaultView = () => {
+      isInteractingWithUi = true;
+      isDragging = false;
+      hoverNormalized.x = 0;
+      hoverNormalized.y = 0;
+      dragOffset.x = 0;
+      dragOffset.y = 0;
+      updatePointerTarget();
+    };
+
     const onPointerMove = (e: PointerEvent) => {
+      // UI controls sit above the canvas; their pointer positions should not steer the view.
+      if (e.target !== canvas) {
+        returnToDefaultView();
+        return;
+      }
+      isInteractingWithUi = false;
       const nx = (e.clientX / window.innerWidth) * 2 - 1;
       const ny = (e.clientY / window.innerHeight) * 2 - 1;
       hoverNormalized = { x: nx, y: ny };
@@ -649,6 +671,11 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
     };
 
     const onPointerDown = (e: PointerEvent) => {
+      if (e.target !== canvas) {
+        returnToDefaultView();
+        return;
+      }
+      isInteractingWithUi = false;
       isDragging = true;
       dragStart = { x: e.clientX, y: e.clientY };
     };
@@ -662,8 +689,15 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
       updatePointerTarget();
     };
 
+    const onFocusIn = (e: FocusEvent) => {
+      if (e.target instanceof HTMLElement && !container.contains(e.target)) {
+        returnToDefaultView();
+      }
+    };
+
     window.addEventListener('pointermove', onPointerMove, { passive: true });
-    canvas.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('focusin', onFocusIn);
     canvas.addEventListener('dblclick', onDoubleClick);
     window.addEventListener('pointerup', onPointerUp);
 
@@ -1085,7 +1119,8 @@ export const CyberLunarSeaCanvas: React.FC<CyberLunarSeaCanvasProps> = ({
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('resize', handleResize);
-      canvas.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('focusin', onFocusIn);
       canvas.removeEventListener('dblclick', onDoubleClick);
       canvas.removeEventListener('webglcontextlost', handleContextLost);
       canvas.removeEventListener('webglcontextrestored', handleContextRestored);
